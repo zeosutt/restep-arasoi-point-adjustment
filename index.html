@@ -63,11 +63,11 @@
 		<h3>ポイント</h3>
 		<div>
 			<label for="first-point">現在値</label>
-			<input id="first-point" type="number" v-model.number="firstPoint">
+			<input id="first-point" type="number" min="0" v-model.number="firstPoint">
 		</div>
 		<div>
 			<label for="last-point">目標値</label>
-			<input id="last-point" type="number" v-model.number="lastPoint">
+			<input id="last-point" type="number" min="0" v-model.number="lastPoint">
 		</div>
 
 		<h2>結果</h2>
