@@ -1,0 +1,1011 @@
+<html>
+<head>
+	<title>yeey</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+	<!-- <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script> -->
+	<script src="https://cdn.jsdelivr.net/npm/vue@2.6.0"></script>
+	<script src="https://kit.fontawesome.com/2175813ff2.js" crossorigin="anonymous"></script>
+
+	<style type="text/css">
+		#app {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+		}
+		.table {
+			margin-bottom: 0;
+		}
+		.row-group-odd {
+			background-color: rgba(0, 0, 0, 0.05);
+		}
+		.pane {
+			overflow-y: auto;
+		}
+		.pane.choice {
+			flex: 5;
+			border-top: solid;
+			border-bottom: solid;
+		}
+		.pane.result {
+			flex: 1;
+			display: flex;
+			width: 100%;
+		}
+		.pane.column {
+			flex: 1;
+		}
+		.pane.perm {
+			border-left: solid;
+			overflow-y: scroll;
+		}
+		.table-sm td.memo {
+			padding: 0;
+		}
+	</style>
+</head>
+<body>
+	<div id="app">
+		<div class="pane setting">
+			<div>
+				<label>
+					musicFile
+					<input class="form-control-file" type="file" accept=".json" @change="onChangeMusicFile" />
+				</label>
+				<label>
+					choiceListFile
+					<input class="form-control-file" type="file" accept=".json" @change="onChangeChoiceListFile"  :disabled="!isMusicReady" />
+				</label>
+				<button class="btn btn-primary" type="button" @click="onClickCreateNew" :disabled="!isMusicReady">新規作成</button>
+				<button class="btn btn-primary" type="button" @click="onClickDownloadChoiceList" :disabled="!isChoiceListReady">保存</button>
+			</div>
+			<div style="display: flex;">
+				<div>
+					<button class="btn btn-dark btn-sm" @click="isShowCharacterSettingList = !isShowCharacterSettingList">
+						characterSettingList <i :class="`fas fa-chevron-${isShowCharacterSettingList ? 'up' : 'down'}`"></i>
+					</button>
+					<label>
+						characterSettingListFile
+						<input class="form-control-file" type="file" accept=".json" @change="onChangeCharacterSettingListFile" />
+					</label>
+					<button class="btn btn-primary" type="button" @click="onClickDownloadCharacterSettingList">保存</button>
+					<table v-show="isShowCharacterSettingList">
+						<thead>
+							<tr>
+								<th>color</th>
+								<th>boost</th>
+								<th>duration</th>
+								<th>rate</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="column in COLUMN_LIST" :key="column">
+								<td>
+									<div class="form-check form-check-inline" v-for="color in COLOR_LIST" :key="color">
+										<input class="form-check-input" :id="`${column}_color_${color}`" type="checkbox" :name="`${column}_color`" :value="color" v-model="characterSettingList[column].colorList" />
+										<label class="form-check-label" :for="`${column}_color_${color}`">
+											{{ color }}
+										</label>
+									</div>
+								</td>
+								<td>
+									<input type="number" min="0" max="6" v-model.number="characterSettingList[column].boost" />
+								</td>
+								<td>
+									<input type="number" min="0" max="8" v-model.number="characterSettingList[column].duration" />
+								</td>
+								<td>
+									<input type="number" min="0.28" max="0.43" step="0.01" v-model.number="characterSettingList[column].rate" />
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<div style="margin-left: 20px">
+					<button class="btn btn-dark btn-sm" @click="isShowColumnViewSettingList = !isShowColumnViewSettingList">
+						columnViewSettingList <i :class="`fas fa-chevron-${isShowColumnViewSettingList ? 'up' : 'down'}`"></i>
+					</button>
+					<table v-show="isShowColumnViewSettingList">
+						<thead>
+							<tr>
+								<th>column</th>
+								<th>colorList</th>
+								<th>boostList</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="column in COLUMN_LIST" :key="column">
+								<td>{{ column }}</td>
+								<td>
+									<div class="form-check form-check-inline" v-for="color in COLOR_LIST" :key="`column-${column}-view-color-list-${color}`">
+										<input class="form-check-input" :id="`column-${column}-view-color-list-${color}`" type="checkbox" :value="color" v-model="columnViewSettingList[column].colorList" />
+										<label class="form-check-label" :for="`column-${column}-view-color-list-${color}`">
+											{{ color }}
+										</label>
+									</div>
+								</td>
+								<td>
+									<div class="form-check form-check-inline" v-for="boost in boostList" :key="`column-${column}-view-boost-list-${boost}`">
+										<input class="form-check-input" :id="`column-${column}-view-boost-list-${boost}`" type="checkbox" :value="boost" v-model="columnViewSettingList[column].boostList" />
+										<label class="form-check-label" :for="`column-${column}-view-boost-list-${boost}`">
+											{{ boost }}
+										</label>
+									</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<div>
+				<label>viewNoteColorList</label>
+				<div class="form-check form-check-inline" v-for="color in COLOR_LIST" :key="`view-note-color-list-${color}`">
+					<input class="form-check-input" :id="`view-note-color-list-${color}`" type="checkbox" :value="color" v-model="viewNoteColorList" />
+					<label class="form-check-label" :for="`view-note-color-list-${color}`">
+						{{ color }}
+					</label>
+				</div>
+				<label>viewScoreColorList</label>
+				<div class="form-check form-check-inline" v-for="color in affectableColorList" :key="`view-score-color-list-${color}`">
+					<input class="form-check-input" :id="`view-score-color-list-${color}`" type="checkbox" :value="color" v-model="viewScoreColorList" />
+					<label class="form-check-label" :for="`view-score-color-list-${color}`">
+						{{ color }}
+					</label>
+				</div>
+				<label>viewBoostList</label>
+				<div class="form-check form-check-inline" v-for="boost in boostList" :key="`view-boost-list-${boost}`">
+					<input class="form-check-input" :id="`view-boost-list-${boost}`" type="checkbox" :value="boost" v-model="viewBoostList" />
+					<label class="form-check-label" :for="`view-boost-list-${boost}`">
+						{{ boost }}
+					</label>
+				</div>
+				<label>viewDurationList</label>
+				<div class="form-check form-check-inline" v-for="duration in durationList" :key="`view-duration-list-${duration}`">
+					<input class="form-check-input" :id="`view-duration-list-${duration}`" type="checkbox" :value="duration" v-model="viewDurationList" />
+					<label class="form-check-label" :for="`view-duration-list-${duration}`">
+						{{ duration }}
+					</label>
+				</div>
+			</div>
+			<div class="bg-danger text-white">
+				{{ errorMessage }}
+			</div>
+		</div>
+		<div class="pane choice">
+			<table class="table table-sm">
+				<thead>
+					<tr>
+						<th>effectiveColumnList</th>
+						<th>combo</th>
+						<th>beat</th>
+						<th>color</th>
+						<th>isSkill</th>
+						<template v-for="color in sortedViewScoreColorList">
+							<th :key="`note-set-${color}`">
+								{{ color }}
+							</th>
+							<th :key="`effective-note-set-${color}`"></th>
+						</template>
+						<th>total</th>
+						<th></th>
+						<th>currentColumn</th>
+						<th>gauge</th>
+						<th>altColumn</th>
+						<th>exchangeColumn</th>
+						<th>isGreat</th>
+						<th>memo</th>
+						<th>combo</th>
+					</tr>
+				</thead>
+				<tbody v-if="isAllReady">
+					<tr v-for="(row, i) in filteredRowList" :key="i" :class="`row-group-${row.group % 2 === 0 ? 'even' : 'odd'}`">
+						<td>{{ row.effectiveColumnList }}</td>
+						<td>{{ row.combo }}</td>
+						<td>{{ row.beat }}</td>
+						<td>{{ row.color }}</td>
+						<td :class="{'bg-info': row.isSkill}">{{ row.isSkill }}</td>
+						<template v-for="color in sortedViewScoreColorList">
+							<td :key="`note-set-${color}`">
+								<div v-for="duration in sortedViewDurationList" :key="duration">
+									{{ row.colorNoteSetMap.get(duration).get(color) }}
+								</div>
+							</td>
+							<td v-if="sortedColumnViewSettingList[row.currentColumn].colorList.includes(color)" :key="`effective-note-set-${color}`">
+								<div v-for="boost in sortedColumnViewSettingList[row.currentColumn].boostList" :key="boost">
+									<span v-if="row.effectiveNoteSetMap.has(boost)" v-for="duration in sortedViewDurationList" :key="duration" :class="{'bg-danger': row.effectiveNoteSetMap.get(boost).get(duration).get(color).total !== row.colorNoteSetMap.get(duration).get(color).total}">
+										{{ row.effectiveNoteSetMap.get(boost).get(duration).get(color) }}
+									</span>
+									<span v-else>&nbsp;</span>
+								</div>
+							</td>
+							<td v-else></td>
+						</template>
+						<td>
+							<div v-for="duration in sortedViewDurationList" :key="duration">
+								{{ row.colorNoteSetMap.get(duration).getMerged(sortedColumnViewSettingList[row.currentColumn].colorList) }}
+							</div>
+						</td>
+						<td>
+							<div v-for="boost in sortedColumnViewSettingList[row.currentColumn].boostList" :key="boost">
+								<span v-if="row.effectiveNoteSetMap.has(boost)" v-for="duration in sortedViewDurationList" :key="duration" :class="{'bg-danger': row.effectiveNoteSetMap.get(boost).get(duration).getMerged(sortedColumnViewSettingList[row.currentColumn].colorList).total !== row.colorNoteSetMap.get(duration).getMerged(sortedColumnViewSettingList[row.currentColumn].colorList).total}">
+									{{ row.effectiveNoteSetMap.get(boost).get(duration).getMerged(sortedColumnViewSettingList[row.currentColumn].colorList) }}
+								</span>
+								<span v-else>&nbsp;</span>
+							</div>
+						</td>
+						<td v-if="row.currentColumn === row.oldColumn">{{ row.currentColumn }}</td>
+						<td v-else>
+							{{ row.oldColumn }} -> {{ row.currentColumn }}
+							<span v-if="row.choice.exchangeColumn === -1 || row.choice.exchangeColumn === row.oldColumn"> (temp)</span>
+						</td>
+						<td>
+							<div v-for="boost in sortedColumnViewSettingList[row.currentColumn].boostList" :key="boost" :class="{'bg-success': row.gaugeMap.get(boost) >= 100}">
+								{{ row.gaugeMap.get(boost) }}
+							</div>
+						</td>
+						<td :class="{'bg-warning': row.choice.altColumn !== -1 && row.choice.altColumn !== row.oldColumn}">
+							<div class="form-check form-check-inline" v-for="column in [-1, ...COLUMN_LIST_MAP.get(row.color)]" :key="column">
+								<input class="form-check-input" :id="`${i}_alt_${column}`" type="radio" :name="`${i}_alt`" :value="column" v-model.number="row.choice.altColumn" :disabled="column === row.oldColumn" />
+								<label class="form-check-label" :for="`${i}_alt_${column}`">
+									{{ column }}
+								</label>
+							</div>
+						</td>
+						<td :class="{'bg-warning': row.choice.exchangeColumn !== -1 && row.choice.exchangeColumn !== row.oldColumn}">
+							<div class="form-check form-check-inline" v-for="column in [-1, ...COLUMN_LIST_MAP.get(row.color)]" :key="column">
+								<input class="form-check-input" :id="`${i}_exchange_${column}`" type="radio" :name="`${i}_exchange`" :value="column" v-model.number="row.choice.exchangeColumn" :disabled="column === row.oldColumn" />
+								<label class="form-check-label" :for="`${i}_exchange_${column}`">
+									{{ column }}
+								</label>
+							</div>
+						</td>
+						<td>
+							<div class="form-check">
+								<input class="form-check-input position-static" type="checkbox" v-model="row.choice.isGreat" />
+							</div>
+						</td>
+						<td class="memo">
+							<input v-model="row.choice.memo" />
+						</td>
+						<td>{{ row.combo }}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<div class="pane result">
+			<div class="pane column">
+				<table class="table table-striped table-sm">
+					<thead>
+						<tr>
+							<th>column</th>
+							<th v-for="color in affectableColorList" :key="color">
+								{{ color }}
+							</th>
+						</tr>
+					</thead>
+					<tbody v-if="isAllReady">
+						<tr v-for="column in columnNoteSet.keys()" :key="column">
+							<td>{{ column }}</td>
+							<td v-for="color in affectableColorList" :key="color">
+								<div v-for="boost in sortedViewBoostList" :key="boost">
+									<span v-for="duration in sortedViewDurationList" :key="duration">
+										{{ columnNoteSet.get(column).get(boost).get(duration).get(color) }}
+									</span>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<div class="pane perm">
+				<table class="table table-striped table-sm">
+					<thead>
+						<tr>
+							<th>perm</th>
+							<th v-for="color in affectableColorList" :key="color">
+								{{ color }}
+							</th>
+							<th>total</th>
+						</tr>
+					</thead>
+					<tbody v-if="isAllReady">
+						<tr v-for="(permScore, i) in permScoreList" :key="i">
+							<td>{{ permScore.perm.toString() }}</td>
+							<td v-for="color in affectableColorList" :key="color">
+								{{ permScore.colorNoteSetList.get(color) }}
+							</td>
+							<td>
+								{{ permScore.colorNoteSetList }}
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		class Character {
+			constructor(setting) {
+				this.colorList = setting.colorList;
+				this.boost = setting.boost;
+				this.duration = setting.duration;
+				this.rate = setting.rate;
+			}
+
+			toString() {
+				// メモ化
+				return this.string = this.string || `<${[this.colorList, this.boost, this.duration, this.rate].join("|")}>`;
+			}
+		}
+
+		class ComboCoeffNoteSet {
+			constructor() {
+				this.noteSetMap = new Map([...COMBO_COEFF_BORDER_MAP.keys()].map((comboCoeff) => [comboCoeff, new Set()]));
+			}
+
+			get(comboCoeff) {
+				return this.noteSetMap.get(comboCoeff);
+			}
+
+			addToSet(comboCoeff, note) {
+				this.noteSetMap.get(comboCoeff).add(note);
+			}
+
+			add(other) {
+				for (const comboCoeff of COMBO_COEFF_BORDER_MAP.keys()) {
+					const otherNoteSet = other.noteSetMap.get(comboCoeff);
+					for (const note of otherNoteSet) {
+						this.addToSet(comboCoeff, note);
+					}
+				}
+			}
+
+			has(note) {
+				return [...this.noteSetMap.values()].some((noteSet) => noteSet.has(note));
+			}
+
+			get total() {
+				return [...this.noteSetMap.values()].reduce((acc, noteSet) => acc + noteSet.size, 0);
+			}
+
+			get weightedTotal() {
+				return [...this.noteSetMap.entries()].reduce((acc, [comboCoeff, noteSet]) => acc + comboCoeff * noteSet.size, 0);
+			}
+
+			toString() {
+				return `${this.total} (${this.weightedTotal.toFixed(1)})`;
+			}
+
+			static sub(a, b) {
+				const result = new this();
+				for (const comboCoeff of COMBO_COEFF_BORDER_MAP.keys()) {
+					// TODO: Set.sub() を定義したい
+					for (const note of a.get(comboCoeff)) {
+						if (!b.get(comboCoeff).has(note)) {
+							result.get(comboCoeff).add(note);
+						}
+					}
+				}
+				return result;
+			}
+		}
+
+		class ColorNoteSet {
+			constructor(COLOR_LIST) {
+				this.COLOR_LIST = COLOR_LIST;
+				this.comboCoeffNoteSetMap = new Map(COLOR_LIST.map((color) => [color, new ComboCoeffNoteSet()]));
+			}
+
+			get(color) {
+				return this.comboCoeffNoteSetMap.get(color);
+			}
+
+			add(other) {
+				for (const color of this.COLOR_LIST) {
+					this.addOneColor(other, color);
+				}
+			}
+
+			addOneColor(other, color) {
+				this.get(color).add(other.get(color));
+			}
+
+			getMerged(colorList) {
+				const comboCoeffNoteSet = new ComboCoeffNoteSet();
+				for (const color of colorList) {
+					comboCoeffNoteSet.add(this.get(color));
+				}
+				return comboCoeffNoteSet;
+			}
+
+			get total() {
+				return [...this.comboCoeffNoteSetMap.values()].reduce((acc, comboCoeffNoteSet) => acc + comboCoeffNoteSet.total, 0);
+			}
+
+			get weightedTotal() {
+				return [...this.comboCoeffNoteSetMap.values()].reduce((acc, comboCoeffNoteSet) => acc + comboCoeffNoteSet.weightedTotal, 0);
+			}
+
+			static sub(a, b) {
+				const result = new this(a.COLOR_LIST);
+				for (const color of a.COLOR_LIST) {
+					result.comboCoeffNoteSetMap.set(color, ComboCoeffNoteSet.sub(a.get(color), b.get(color)));
+				}
+				return result;
+			}
+		}
+
+		class ComboCoeffNoteSetList {
+			constructor() {
+				this.comboCoeffNoteSetList = [];
+			}
+
+			push(comboCoeffNoteSet, rate) {
+				this.comboCoeffNoteSetList.push({comboCoeffNoteSet, rate});
+			}
+
+			get total() {
+				return this.comboCoeffNoteSetList.reduce((acc, comboCoeffNoteSetWithRate) => acc + comboCoeffNoteSetWithRate.comboCoeffNoteSet.total, 0);
+			}
+
+			get weightedTotal() {
+				return this.comboCoeffNoteSetList.reduce((acc, comboCoeffNoteSetWithRate) => acc + comboCoeffNoteSetWithRate.comboCoeffNoteSet.weightedTotal, 0);
+			}
+
+			get ratedTotal() {
+				return this.comboCoeffNoteSetList.reduce((acc, comboCoeffNoteSetWithRate) => acc + comboCoeffNoteSetWithRate.comboCoeffNoteSet.weightedTotal * comboCoeffNoteSetWithRate.rate, 0);
+			}
+
+			toString() {
+				return `${this.total} (${this.weightedTotal.toFixed(1)}) (${this.ratedTotal.toFixed(3)})`;
+			}
+		}
+
+		class ColorNoteSetList {
+			constructor(COLOR_LIST) {
+				this.COLOR_LIST = COLOR_LIST;
+				this.comboCoeffNoteSetListMap = new Map(COLOR_LIST.map((color) => [color, new ComboCoeffNoteSetList()]));
+			}
+
+			get(color) {
+				return this.comboCoeffNoteSetListMap.get(color);
+			}
+
+			pushOneColor(colorNoteSet, color, rate) {
+				this.get(color).push(colorNoteSet.get(color), rate);
+			}
+
+			get total() {
+				return [...this.comboCoeffNoteSetListMap.values()].reduce((acc, comboCoeffNoteSetList) => acc + comboCoeffNoteSetList.total, 0);
+			}
+
+			get weightedTotal() {
+				return [...this.comboCoeffNoteSetListMap.values()].reduce((acc, comboCoeffNoteSetList) => acc + comboCoeffNoteSetList.weightedTotal, 0);
+			}
+
+			get ratedTotal() {
+				return [...this.comboCoeffNoteSetListMap.values()].reduce((acc, comboCoeffNoteSetList) => acc + comboCoeffNoteSetList.ratedTotal, 0);
+			}
+
+			toString() {
+				return `${this.total} (${this.weightedTotal.toFixed(1)}) (${this.ratedTotal.toFixed(3)})`;
+			}
+		}
+
+		const COLUMN_NUM = 7;
+		const COMBO_COEFF_BORDER_MAP = new Map([
+			[1.0, 0.05],
+			[1.1, 0.10],
+			[1.2, 0.25],
+			[1.3, 0.50],
+			[1.4, 0.70],
+			[1.5, 0.80],
+			[1.7, 0.90],
+			[2.0, Infinity],
+		]);
+
+		// IS_SHOW_NOTE_SCORES = False
+		// IS_SHOW_BEST_LOGS = False
+
+		const COLUMN_LIST = [...Array(COLUMN_NUM).keys()];
+
+		const loadJsonFile = (file) => {
+			return new Promise((resolve, reject) => {
+				const fileReader = new FileReader();
+				fileReader.addEventListener("load", () => {
+					resolve(JSON.parse(fileReader.result));
+				});
+				fileReader.readAsText(file);
+			});
+		};
+
+		const permute = (array, precede = []) => {
+			if (array.length === 0) {
+				return [precede];
+			}
+
+			let result = [];
+			for (let i = 0; i < array.length; i++) {
+				const remain = array.slice();
+				const chosen = remain.splice(i, 1);
+				result = result.concat(permute(remain, precede.concat(chosen)))
+			}
+			return result;
+		};
+
+		const determineGaugeGain = (isSkill, isGreat, boost) => {
+			let base;
+			if (isSkill) {
+				if (isGreat) {
+					base = 15;
+				} else {
+					base = 35;
+				}
+			} else {
+				if (isGreat) {
+					base = 5;
+				} else {
+					base = 10;
+				}
+			}
+			return base + boost;
+		};
+
+		const determineComboCoeff = (comboRate) => {
+			for (const [comboCoeff, border] of COMBO_COEFF_BORDER_MAP) {
+				if (comboRate < border) {
+					return comboCoeff;
+				}
+			}
+		};
+
+		const vm = new Vue({
+			el: "#app",
+			data: {
+				music: {},
+				isShowCharacterSettingList: false,
+				characterSettingList: COLUMN_LIST.map((_) => ({colorList: [], boost: 0, duration: 0, rate: 0.38})),
+				isShowColumnViewSettingList: false,
+				columnViewSettingList: COLUMN_LIST.map((_) => ({colorList: [], boostList: []})),
+				choiceList: [],
+				viewNoteColorList: [],
+				viewScoreColorList: [],
+				viewBoostList: [],
+				viewDurationList: [],
+				errorMessage: "",
+			},
+			computed: {
+				COLOR_LIST() {
+					return [...new Set(this.music.initialColorList)].sort();
+				},
+
+				COLUMN_LIST() {
+					return COLUMN_LIST;
+				},
+
+				COLUMN_LIST_MAP() {
+					return new Map(this.COLOR_LIST.map((color) => {
+						return [color, COLUMN_LIST.filter((column) => this.music.initialColorList[column] === color)];
+					}));
+				},
+
+				characterList() {
+					return this.characterSettingList.map((setting) => new Character(setting));
+				},
+
+				boostList() {
+					return [...new Set(this.characterList.map((character) => character.boost))].sort();
+				},
+
+				durationList() {
+					return [...new Set(this.characterList.map((character) => character.duration))].sort();
+				},
+
+				affectableColorList() {
+					return this.COLOR_LIST.filter((color) => {
+						for (const character of this.characterList) {
+							if (character.colorList.includes(color)) {
+								return true;
+							}
+						}
+						return false;
+					});
+				},
+
+				isMusicReady() {
+					return Object.keys(this.music).length > 0;
+				},
+
+				isChoiceListReady() {
+					return this.choiceList.length > 0;
+				},
+
+				isAllReady() {
+					return this.isMusicReady && this.isChoiceListReady;
+				},
+
+				// 「 duration ごとの「色ごと、倍率ごとの
+				// 「その index のノーツでスキルが発動した場合の、スキル効果時間内ノーツの集合」」」のリスト
+				colorNoteSetMapList() {
+					const colorNoteSetMapList = [];
+
+					const noteList = this.music.noteList;
+					const bps = this.music.bps;
+					const durationList = this.durationList;
+					const COLOR_LIST = this.COLOR_LIST;
+					noteList.forEach((note, i) => {
+						const colorNoteSetMap = new Map();
+
+						for (const duration of durationList) {
+							const begin = note.beat;
+							const end = begin + bps * (duration - 0.05);
+
+							const colorNoteSet = new ColorNoteSet(COLOR_LIST);
+							noteList.forEach((n, j) => {
+								if (j > i && n.beat >= begin && n.beat < end) {
+									const comboRate = (j + 1) / noteList.length;
+									const comboCoeff = determineComboCoeff(comboRate);
+									colorNoteSet.get(n.color).addToSet(comboCoeff, n);
+								}
+							});
+
+							colorNoteSetMap.set(duration, colorNoteSet);
+						}
+
+						colorNoteSetMapList.push(colorNoteSetMap);
+					});
+
+					return colorNoteSetMapList;
+				},
+
+				oldColumnList() {
+					const oldColumnList = [];
+
+					const currentColumnMap = new Map(COLUMN_LIST.map((column) => [column, column]));
+					const choiceList = this.choiceList;
+					this.music.noteList.forEach((note, i) => {
+						oldColumnList.push(currentColumnMap.get(note.origColumn));
+
+						const choice = choiceList[i];
+						if (choice.exchangeColumn !== -1) {
+							const currentExchangerColumn = COLUMN_LIST.find((column) => currentColumnMap.get(column) === choice.exchangeColumn);
+							const tmp = currentColumnMap.get(note.origColumn);
+							currentColumnMap.set(note.origColumn, choice.exchangeColumn);
+							currentColumnMap.set(currentExchangerColumn, tmp);
+						}
+					});
+
+					return oldColumnList;
+				},
+
+				currentColumnList() {
+					const currentColumnList = [];
+
+					const currentColumnMap = new Map(COLUMN_LIST.map((column) => [column, column]));
+					const choiceList = this.choiceList;
+					this.music.noteList.forEach((note, i) => {
+						const choice = choiceList[i];
+
+						if (choice.exchangeColumn !== -1) {
+							const currentExchangerColumn = COLUMN_LIST.find((column) => currentColumnMap.get(column) === choice.exchangeColumn);
+							const tmp = currentColumnMap.get(note.origColumn);
+							currentColumnMap.set(note.origColumn, choice.exchangeColumn);
+							currentColumnMap.set(currentExchangerColumn, tmp);
+						}
+
+						const currentColumn = (choice.altColumn !== -1 ? choice.altColumn : currentColumnMap.get(note.origColumn));
+						currentColumnList.push(currentColumn);
+					});
+
+					return currentColumnList;
+				},
+
+				gaugeMapList() {
+					const gaugeMapList = [];
+
+					const gaugeMapByColumn = new Map(COLUMN_LIST.map((column) => {
+						return [column, new Map(this.boostList.map((boost) => [boost, 0]))];
+					}));
+					const choiceList = this.choiceList;
+					const currentColumnList = this.currentColumnList;
+					const boostList = this.boostList;
+					this.music.noteList.forEach((note, i) => {
+						const choice = choiceList[i];
+						const column = currentColumnList[i];
+
+						const gaugeMap = new Map();
+
+						for (const boost of boostList) {
+							const oldGauge = gaugeMapByColumn.get(column).get(boost);
+							const newGauge = oldGauge + determineGaugeGain(note.isSkill, choice.isGreat, boost);
+							gaugeMapByColumn.get(column).set(boost, newGauge);
+
+							gaugeMap.set(boost, newGauge);
+
+							if (newGauge >= 100) {
+								gaugeMapByColumn.get(column).set(boost, 0);
+							}
+						}
+
+						gaugeMapList.push(gaugeMap);
+					});
+
+					return gaugeMapList;
+				},
+
+				effectiveNoteSetMapList() {
+					const effectiveNoteSetMapList = [];
+					const columnNoteSet = new Map(COLUMN_LIST.map((column) => {
+						return [column, new Map(this.boostList.map((boost) => {
+							return [boost, new Map(this.durationList.map((duration) => [duration, new ColorNoteSet(this.COLOR_LIST)]))];
+						}))];
+					}));
+
+					const currentColumnList = this.currentColumnList;
+					const boostList = this.boostList;
+					const gaugeMapList = this.gaugeMapList;
+					const durationList = this.durationList;
+					const colorNoteSetMapList = this.colorNoteSetMapList;
+					this.music.noteList.forEach((note, i) => {
+						const effectiveNoteSetMap = new Map();
+						const column = currentColumnList[i];
+
+						for (const boost of boostList) {
+							const gauge = gaugeMapList[i].get(boost);
+
+							if (gauge >= 100) {
+								effectiveNoteSetMap.set(boost, new Map());
+
+								for (const duration of durationList) {
+									const colorNoteSet = colorNoteSetMapList[i].get(duration);
+									const augendColorNoteSet = columnNoteSet.get(column).get(boost).get(duration);
+									const effectiveNoteSet = ColorNoteSet.sub(colorNoteSet, augendColorNoteSet);
+									augendColorNoteSet.add(colorNoteSet);
+									effectiveNoteSetMap.get(boost).set(duration, effectiveNoteSet);
+								}
+							}
+						}
+
+						effectiveNoteSetMapList.push(effectiveNoteSetMap);
+					});
+
+					return effectiveNoteSetMapList;
+				},
+
+				// column ごと、 boost ごと、 duration ごとの「色ごと、倍率ごとの「スキルの影響を受けるノーツの集合」」
+				columnNoteSet() {
+					const columnNoteSet = new Map(COLUMN_LIST.map((column) => {
+						return [column, new Map(this.boostList.map((boost) => {
+							return [boost, new Map(this.durationList.map((duration) => [duration, new ColorNoteSet(this.COLOR_LIST)]))];
+						}))];
+					}));
+
+					const currentColumnList = this.currentColumnList;
+					const boostList = this.boostList;
+					const gaugeMapList = this.gaugeMapList;
+					const durationList = this.durationList;
+					const colorNoteSetMapList = this.colorNoteSetMapList;
+					this.music.noteList.forEach((note, i) => {
+						const column = currentColumnList[i];
+
+						for (const boost of boostList) {
+							const gauge = gaugeMapList[i].get(boost);
+
+							if (gauge >= 100) {
+								for (const duration of durationList) {
+									const colorNoteSet = colorNoteSetMapList[i].get(duration);
+									columnNoteSet.get(column).get(boost).get(duration).add(colorNoteSet);
+								}
+							}
+						}
+					});
+
+					return columnNoteSet;
+				},
+
+				permutedCharacterList() {
+					return permute(this.characterList);
+				},
+
+				permScoreList() {
+					const permScoreMap = new Map();
+
+					const affectableColorList = this.affectableColorList;
+					const columnNoteSet = this.columnNoteSet;
+					for (const perm of this.permutedCharacterList) {
+						const permKey = perm.toString();
+						if (!permScoreMap.has(permKey)) {
+							const colorNoteSetList = new ColorNoteSetList(affectableColorList);
+							perm.forEach((character, column) => {
+								for (const color of character.colorList) {
+									if (color !== "N") {
+										const colorNoteSet = columnNoteSet.get(column).get(character.boost).get(character.duration);
+										colorNoteSetList.pushOneColor(colorNoteSet, color, character.rate);
+									}
+								}
+							});
+							permScoreMap.set(permKey, {perm, colorNoteSetList});
+						}
+					}
+
+					const permScoreList = [...permScoreMap.values()].sort((a, b) => {
+						return b.colorNoteSetList.ratedTotal - a.colorNoteSetList.ratedTotal;
+					});
+
+					return permScoreList;
+				},
+
+				effectiveColumnListList() {
+					const effectiveColumnListList = [];
+
+					const vestPerm = this.permScoreList[0].perm;
+					const columnNoteSet = this.columnNoteSet;
+					this.music.noteList.forEach((note, i) => {
+						const effectiveColumnList = [];
+
+						vestPerm.forEach((character, column) => {
+							for (const color of character.colorList) {
+								if (color === note.color) {
+									const comboCoeffNoteSet = columnNoteSet.get(column).get(character.boost).get(character.duration).get(color);
+									if (comboCoeffNoteSet.has(note)) {
+										effectiveColumnList.push(column);
+									}
+								}
+							}
+						});
+
+						effectiveColumnListList.push(effectiveColumnList);
+					});
+
+					return effectiveColumnListList;
+				},
+
+				// for column in VIEW_COLUMNS:
+				// 	for boost in this.boostList:
+				// 		print(column, boost, gauges[column][boost])
+
+				// for duration in this.durationList:
+				// 	for column in VIEW_COLUMNS:
+				// 		for boost in this.boostList:
+				// 			print(column, boost, duration, column_scores[column][boost][duration])
+
+				// if IS_SHOW_BEST_LOGS:
+				// 	best_perm = sorted_color_score_map_by_perm_items[0][0]
+
+				// 	best_skill_logs = []
+				// 	for column, character in enumerate(best_perm):
+				// 		print(column, character)
+				// 		best_skill_logs.extend(filter(lambda log: log.column == column and log.boost == character.boost and log.duration == character.duration, skill_logs))
+				// 	for skill_log in sorted(best_skill_logs, key=lambda log: log.time):
+				// 		print(skill_log)
+
+				sortedColumnViewSettingList() {
+					return COLUMN_LIST.map((column) => ({
+						colorList: this.columnViewSettingList[column].colorList,
+						boostList: this.columnViewSettingList[column].boostList.sort()
+					}));
+				},
+
+				sortedViewScoreColorList() {
+					return this.viewScoreColorList.sort();
+				},
+
+				sortedViewBoostList() {
+					return this.viewBoostList.sort();
+				},
+
+				sortedViewDurationList() {
+					return this.viewDurationList.sort();
+				},
+
+				rowList() {
+					const effectiveColumnListList = this.effectiveColumnListList;
+					const colorNoteSetMapList = this.colorNoteSetMapList;
+					const effectiveNoteSetMapList = this.effectiveNoteSetMapList;
+					const oldColumnList = this.oldColumnList;
+					const currentColumnList = this.currentColumnList;
+					const gaugeMapList = this.gaugeMapList;
+					const choiceList = this.choiceList;
+					return this.music.noteList.map((note, i) => {
+						return {
+							...note,
+							effectiveColumnList: effectiveColumnListList[i],
+							combo: i + 1,
+							colorNoteSetMap: colorNoteSetMapList[i],
+							effectiveNoteSetMap: effectiveNoteSetMapList[i],
+							oldColumn: oldColumnList[i],
+							currentColumn: currentColumnList[i],
+							gaugeMap: gaugeMapList[i],
+							choice: choiceList[i],
+						};
+					});
+				},
+
+				filteredRowList() {
+					const filteredRowList = this.rowList.filter((row) => this.viewNoteColorList.includes(row.color));
+
+					if (filteredRowList.length === 0) {
+						return [];
+					}
+
+					filteredRowList[0].group = 0;
+					for (let i = 1; i < filteredRowList.length; i++) {
+						const row = filteredRowList[i];
+						const prevRow = filteredRowList[i - 1];
+						if (row.beat === prevRow.beat) {
+							row.group = prevRow.group;
+						} else {
+							row.group = prevRow.group + 1;
+						}
+					}
+
+					return filteredRowList;
+				},
+			},
+			methods: {
+				onChangeMusicFile(event) {
+					const file = event.target.files[0];
+					loadJsonFile(file).then((music) => {
+						for (const note of music.noteList) {
+							if (note.color !== music.initialColorList[note.origColumn]) {
+								this.errorMessage = `(beat, color) = (${note.beat}, ${note.color}) のノーツ、違う色のカラムで取ってる`;
+								return;
+							}
+						}
+						for (let i = 0; i < music.noteList.length - 1; i++) {
+							const note = music.noteList[i];
+							const nextNote = music.noteList[i + 1];
+							if (note.beat > nextNote.beat) {
+								this.errorMessage = `${i + 1}コンボ目のノーツ、次のノーツよりbeatが大きい`;
+								return;
+							}
+						}
+						this.errorMessage = "";
+
+						this.music = music;
+						this.viewNoteColorList = this.COLOR_LIST.slice();
+						this.viewScoreColorList = this.affectableColorList.slice();
+					});
+				},
+				onChangeChoiceListFile(event) {
+					const file = event.target.files[0];
+					loadJsonFile(file).then((choiceList) => {
+						this.choiceList = choiceList;
+					});
+				},
+				onChangeCharacterSettingListFile(event) {
+					const file = event.target.files[0];
+					loadJsonFile(file).then((characterSettingList) => {
+						this.characterSettingList = characterSettingList;
+					});
+				},
+				onClickCreateNew() {
+					this.choiceList = [];
+					for (const _ of this.music.noteList) {
+						this.choiceList.push({
+							altColumn: -1,
+							exchangeColumn: -1,
+							isGreat: false,
+							memo: "",
+						});
+					}
+				},
+				onClickDownloadChoiceList() {
+					const a = document.createElement("a");
+					a.href = `data:text/plain,${encodeURIComponent(JSON.stringify(this.choiceList))}`;
+					a.download = `choice_list_${Date.now()}.json`;
+
+					a.click();
+				},
+				onClickDownloadCharacterSettingList() {
+					const a = document.createElement("a");
+					a.href = `data:text/plain,${encodeURIComponent(JSON.stringify(this.characterSettingList))}`;
+					a.download = "character_setting_list.json";
+
+					a.click();
+				},
+			},
+		});
+	</script>
+</body>
+</html>
