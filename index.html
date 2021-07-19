@@ -209,7 +209,7 @@
 				},
 
 				canAdjust() {
-					return this.dp[this.choiceList.length - 1][this.lastPoint - this.firstPoint] !== Infinity;
+					return this.firstPoint <= this.lastPoint && this.dp[this.choiceList.length - 1][this.lastPoint - this.firstPoint] !== Infinity;
 				},
 
 				requiredChoiceList() {
