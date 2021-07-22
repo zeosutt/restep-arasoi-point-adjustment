@@ -214,12 +214,10 @@
 
 				requiredChoiceList() {
 					const choiceList = this.choiceList;
-					const firstPoint = this.firstPoint;
-					const lastPoint = this.lastPoint;
 					const dp = this.dp;
 
 					const requiredChoiceList = [];
-					let currentPoint = lastPoint - firstPoint;
+					let currentPoint = this.lastPoint - this.firstPoint;
 					for (let i = choiceList.length - 1; i >= 0; i--) {
 						const choice = choiceList[i];
 						let count = 0;
